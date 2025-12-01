@@ -196,7 +196,7 @@ EOF
 create_build_script() {
     print_step "创建构建脚本"
     
-    cat > tun2socks/engine/build.sh << 'EOFBUILD'
+    cat > tun2socks/build.sh << 'EOFBUILD'
 #!/bin/bash
 set -e
 
@@ -259,7 +259,7 @@ else
 fi
 EOFBUILD
     
-    chmod +x tun2socks/engine/build.sh
+    chmod +x tun2socks/build.sh
     print_success "build.sh 已创建"
 }
 
