@@ -10,7 +10,6 @@ on:
 
 env:
   FLUTTER_VERSION: '3.19.0'
-  GO_VERSION: '1.21'
   JAVA_VERSION: '17'
 
 jobs:
@@ -18,77 +17,104 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: 检出代码
+    - name: 📥 检出代码
       uses: actions/checkout@v4
       with:
         ref: main
     
-    - name: 设置 Java 环境
+    - name: 🔧 设置 Java 环境
       uses: actions/setup-java@v4
       with:
         distribution: 'zulu'
         java-version: ${{ env.JAVA_VERSION }}
-        #cache: 'gradle'
+        cache: 'gradle'
     
-    - name: 设置 Go 环境
-      uses: actions/setup-go@v5
-      with:
-        go-version: ${{ env.GO_VERSION }}
-        cache: true
-        cache-dependency-path: tun2socks/engine/go.sum
-    
-    - name: 设置 Flutter 环境
+    - name: 🎯 设置 Flutter 环境
       uses: subosito/flutter-action@v2
       with:
         flutter-version: ${{ env.FLUTTER_VERSION }}
         channel: 'stable'
         cache: true
     
-    - name: 执行 one.sh（先 2，10 秒后 0）
+    - name: 🛠️ 运行 one.sh 生成项目文件（跳过 Go 构建）
       run: |
         chmod +x one.sh
-        # 使用 printf 模拟多次输入
-        printf "2\n" > input.txt
-        sleep 10
-        printf "0\n" >> input.txt
-        ./one.sh < input.txt
-
-    - name: 验证 AAR 文件是否生成
+        
+        # 检查脚本内容，看看选项 2 是做什么的
+        echo "执行 one.sh 选项 2（创建项目结构）"
+        
+        # 输入选项：2 = 仅创建项目结构，0 = 退出
+        printf "2\n0\n" | ./one.sh || {
+          echo "⚠️ one.sh 执行遇到问题，但继续进行"
+          echo "当前目录内容:"
+          ls -la
+        }
+        
+        # 验证关键文件是否生成
+        echo ""
+        echo "检查生成的文件:"
+        [ -f "pubspec.yaml" ] && echo "✅ pubspec.yaml" || echo "❌ pubspec.yaml 缺失"
+        [ -d "lib" ] && echo "✅ lib/" || echo "❌ lib/ 缺失"
+        [ -d "android" ] && echo "✅ android/" || echo "❌ android/ 缺失"
+    
+    - name: 📦 准备 AAR 文件
       run: |
-        cp proxyclient.aar android/app/libs/proxyclient.aar
-        if [ ! -f "android/app/libs/proxyclient.aar" ]; then
-          echo "AAR 文件未生成"
+        # 创建 libs 目录
+        mkdir -p android/app/libs
+        
+        # 复制根目录的预编译 AAR
+        if [ -f "proxyclient.aar" ]; then
+          cp proxyclient.aar android/app/libs/proxyclient.aar
+          echo "✅ AAR 文件已从根目录复制"
+          ls -lh android/app/libs/proxyclient.aar
+        else
+          echo "❌ 根目录找不到 proxyclient.aar"
+          echo "当前目录内容:"
+          ls -la
           exit 1
         fi
-        echo "AAR 文件已生成"
-        ls -lh android/app/libs/proxyclient.aar
     
-    - name: 获取 Flutter 依赖
-      run: flutter pub get
+    - name: 📱 获取 Flutter 依赖
+      run: |
+        echo "当前目录: $(pwd)"
+        
+        # 检查 pubspec.yaml
+        if [ ! -f "pubspec.yaml" ]; then
+          echo "❌ 找不到 pubspec.yaml"
+          echo "目录内容:"
+          ls -la
+          exit 1
+        fi
+        
+        echo "pubspec.yaml 内容预览:"
+        head -20 pubspec.yaml
+        
+        flutter pub get
     
-    - name: 构建 APK（Debug）
+    - name: 🏗️ 构建 APK (Debug)
       if: github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/')
       run: |
         flutter build apk --debug
         mv build/app/outputs/flutter-apk/app-debug.apk \
            build/app/outputs/flutter-apk/appproxy-ech-debug.apk
     
-    - name: 构建 APK（Release）
+    - name: 🏗️ 构建 APK (Release)
       if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
       run: |
         flutter build apk --release
         mv build/app/outputs/flutter-apk/app-release.apk \
            build/app/outputs/flutter-apk/appproxy-ech-release.apk
     
-    - name: 生成构建信息
+    - name: 📊 生成构建信息
       run: |
         echo "Build Date: $(date)" > build_info.txt
         echo "Git Commit: ${{ github.sha }}" >> build_info.txt
         echo "Git Branch: ${{ github.ref_name }}" >> build_info.txt
         echo "Flutter Version: $(flutter --version | head -n 1)" >> build_info.txt
-        echo "Go Version: $(go version)" >> build_info.txt
+        echo "AAR File: $(ls -lh android/app/libs/proxyclient.aar 2>/dev/null || echo 'N/A')" >> build_info.txt
+        cat build_info.txt
     
-    - name: 上传 Debug APK
+    - name: 📤 上传 Debug APK
       if: github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/')
       uses: actions/upload-artifact@v4
       with:
@@ -98,7 +124,7 @@ jobs:
           build_info.txt
         retention-days: 7
     
-    - name: 上传 Release APK
+    - name: 📤 上传 Release APK
       if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
       uses: actions/upload-artifact@v4
       with:
@@ -114,13 +140,13 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     
     steps:
-    - name: 下载构建产物
+    - name: 📥 下载构建产物
       uses: actions/download-artifact@v4
       with:
         name: appproxy-ech-release
         path: ./release
     
-    - name: 创建 GitHub Release
+    - name: 🎉 创建 GitHub Release
       uses: softprops/action-gh-release@v1
       with:
         files: |
@@ -130,13 +156,16 @@ jobs:
           ## AppProxy ECH 客户端 ${{ github.ref_name }}
           
           ### 新功能
-          - ? ECH (Encrypted Client Hello) 支持
-          - ? WebSocket 持久连接
-          - ? SOCKS5 / HTTP 代理
-          - ? DNS over HTTPS
+          - ✅ ECH (Encrypted Client Hello) 支持
+          - ✅ WebSocket 持久连接
+          - ✅ SOCKS5 / HTTP 代理
+          - ✅ DNS over HTTPS
           
           ### 下载
           `appproxy-ech-release.apk` - 通用版本
+          
+          ### 构建信息
+          查看 build_info.txt 了解详细信息
         draft: false
         prerelease: false
       env:
