@@ -1,160 +1,137 @@
 name: Build AppProxy ECH
 
 on:
-  push:
-    branches: [ main, iyue ]
-    tags: [ 'v*' ]
-  pull_request:
-    branches: [ main, iyue ]
-  workflow_dispatch:
+push:
+branches: [ main, iyue ]
+tags: [ 'v*' ]
+pull_request:
+branches: [ main, iyue ]
+workflow_dispatch:
 
 env:
-  FLUTTER_VERSION: '3.19.0'
-  GO_VERSION: '1.24'
-  JAVA_VERSION: '17'
+FLUTTER_VERSION: '3.19.0'
+JAVA_VERSION: '17'
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: 检出代码
-      uses: actions/checkout@v4
-      with:
-        ref: main
-    
-    - name: 设置 Java 环境
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'zulu'
-        java-version: ${{ env.JAVA_VERSION }}
-    
-    - name: 设置 Go 环境
-      uses: actions/setup-go@v5
-      with:
-        go-version: ${{ env.GO_VERSION }}
-        cache: true
-        cache-dependency-path: tun2socks/engine/go.sum
-    
-    - name: 设置 Flutter 环境
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: ${{ env.FLUTTER_VERSION }}
-        channel: 'stable'
-        cache: true
-    
-    - name: 安装 gomobile
-      run: |
-        go install golang.org/x/mobile/cmd/gomobile@latest
-        gomobile init
-        echo "$HOME/go/bin" >> $GITHUB_PATH
+build:
+runs-on: ubuntu-latest
 
-    - name: 执行 one.sh（先 2，10 秒后 0）
-      run: |
-        chmod +x one.sh
-        # 使用 printf 模拟多次输入
-        printf "2\n" > input.txt
-        sleep 10
-        printf "0\n" >> input.txt
-        ./one.sh < input.txt
+```
+steps:
+- name: 📥 Checkout代码
+  uses: actions/checkout@v4
+  with:
+    ref: iyue
 
+- name: 🔧 设置Java环境
+  uses: actions/setup-java@v4
+  with:
+    distribution: 'zulu'
+    java-version: ${{ env.JAVA_VERSION }}
+    cache: 'gradle'
 
-    - name: 准备 proxyclient.aar
-      run: |
-        mkdir -p android/app/libs
-        if [ -f "./proxyclient.aar" ]; then
-          echo "? 使用仓库已有 proxyclient.aar"
-          cp ./proxyclient.aar android/app/libs/
-        else
-          echo "? proxyclient.aar 不存在，开始构建 Go 引擎"
-          chmod +x tun2socks/build.sh
-          ./tun2socks/build.sh
-        fi
-    
-    - name: 验证 AAR 文件是否生成
-      run: |
-        if [ ! -f "android/app/libs/proxyclient.aar" ]; then
-          echo "? AAR 文件未生成"
-          exit 1
-        fi
-        echo "? AAR 文件已生成"
-        ls -lh android/app/libs/proxyclient.aar
-    
-    - name: 获取 Flutter 依赖
-      run: flutter pub get
-    
-    - name: 构建 APK（Debug）
-      if: github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/')
-      run: |
-        flutter build apk --debug
-        mv build/app/outputs/flutter-apk/app-debug.apk \
-           build/app/outputs/flutter-apk/appproxy-ech-debug.apk
-    
-    - name: 构建 APK（Release）
-      if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
-      run: |
-        flutter build apk --release
-        mv build/app/outputs/flutter-apk/app-release.apk \
-           build/app/outputs/flutter-apk/appproxy-ech-release.apk
-    
-    - name: 生成构建信息
-      run: |
-        echo "Build Date: $(date)" > build_info.txt
-        echo "Git Commit: ${{ github.sha }}" >> build_info.txt
-        echo "Git Branch: ${{ github.ref_name }}" >> build_info.txt
-        echo "Flutter Version: $(flutter --version | head -n 1)" >> build_info.txt
-        echo "Go Version: $(go version)" >> build_info.txt
-    
-    - name: 上传 Debug APK
-      if: github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/')
-      uses: actions/upload-artifact@v4
-      with:
-        name: appproxy-ech-debug
-        path: |
-          build/app/outputs/flutter-apk/appproxy-ech-debug.apk
-          build_info.txt
-        retention-days: 7
-    
-    - name: 上传 Release APK
-      if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
-      uses: actions/upload-artifact@v4
-      with:
-        name: appproxy-ech-release
-        path: |
-          build/app/outputs/flutter-apk/appproxy-ech-release.apk
-          build_info.txt
-        retention-days: 30
+- name: 🎯 设置Flutter环境
+  uses: subosito/flutter-action@v2
+  with:
+    flutter-version: ${{ env.FLUTTER_VERSION }}
+    channel: 'stable'
+    cache: true
 
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    
-    steps:
-    - name: 下载构建产物
-      uses: actions/download-artifact@v4
-      with:
-        name: appproxy-ech-release
-        path: ./release
-    
-    - name: 创建 GitHub Release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          ./release/appproxy-ech-release.apk
-          ./release/build_info.txt
-        body: |
-          ## AppProxy ECH 客户端 ${{ github.ref_name }}
-          
-          ### 新功能
-          - ? ECH (Encrypted Client Hello) 支持
-          - ? WebSocket 持久连接
-          - ? SOCKS5 / HTTP 代理
-          - ? DNS over HTTPS
-          
-          ### 下载
-          `appproxy-ech-release.apk` - 通用版本
-        draft: false
-        prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+- name: 🔗 使用已有proxyclient.aar
+  run: |
+    mkdir -p appproxy/android/app/libs
+    cp proxyclient.aar appproxy/android/app/libs/
+
+- name: 🚀 执行 one.sh（先 2，10 秒后 0）
+  run: |
+    chmod +x one.sh
+    printf "2\n" > input.txt
+    sleep 10
+    printf "0\n" >> input.txt
+    ./one.sh < input.txt
+  working-directory: appproxy
+
+- name: 📱 获取Flutter依赖
+  run: flutter pub get
+  working-directory: appproxy
+
+- name: 🏗️ 构建APK (Debug)
+  if: github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/')
+  run: |
+    flutter build apk --debug
+    mv build/app/outputs/flutter-apk/app-debug.apk \
+       build/app/outputs/flutter-apk/appproxy-ech-debug.apk
+  working-directory: appproxy
+
+- name: 🏗️ 构建APK (Release)
+  if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+  run: |
+    flutter build apk --release
+    mv build/app/outputs/flutter-apk/app-release.apk \
+       build/app/outputs/flutter-apk/appproxy-ech-release.apk
+  working-directory: appproxy
+
+- name: 📊 生成版本信息
+  run: |
+    echo "Build Date: $(date)" > build_info.txt
+    echo "Git Commit: ${{ github.sha }}" >> build_info.txt
+    echo "Git Branch: ${{ github.ref_name }}" >> build_info.txt
+    echo "Flutter Version: $(flutter --version | head -n 1)" >> build_info.txt
+  working-directory: appproxy
+
+- name: 📤 上传Debug APK
+  if: github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/')
+  uses: actions/upload-artifact@v4
+  with:
+    name: appproxy-ech-debug
+    path: |
+      appproxy/build/app/outputs/flutter-apk/appproxy-ech-debug.apk
+      appproxy/build_info.txt
+    retention-days: 7
+
+- name: 📤 上传Release APK
+  if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+  uses: actions/upload-artifact@v4
+  with:
+    name: appproxy-ech-release
+    path: |
+      appproxy/build/app/outputs/flutter-apk/appproxy-ech-release.apk
+      appproxy/build_info.txt
+    retention-days: 30
+```
+
+release:
+needs: build
+runs-on: ubuntu-latest
+if: startsWith(github.ref, 'refs/tags/')
+
+```
+steps:
+- name: 📥 下载构建产物
+  uses: actions/download-artifact@v4
+  with:
+    name: appproxy-ech-release
+    path: ./release
+
+- name: 🎉 创建GitHub Release
+  uses: softprops/action-gh-release@v1
+  with:
+    files: |
+      ./release/appproxy-ech-release.apk
+      ./release/build_info.txt
+    body: |
+      ## AppProxy ECH客户端 ${{ github.ref_name }}
+      
+      ### 新功能
+      - ✅ ECH (Encrypted Client Hello) 支持
+      - ✅ WebSocket持久连接
+      - ✅ SOCKS5 和 HTTP代理
+      - ✅ DNS over HTTPS
+      
+      ### 下载
+      `appproxy-ech-release.apk` - 通用版本
+    draft: false
+    prerelease: false
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
