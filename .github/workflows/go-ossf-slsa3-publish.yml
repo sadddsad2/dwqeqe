@@ -42,6 +42,12 @@ jobs:
         flutter-version: ${{ env.FLUTTER_VERSION }}
         channel: 'stable'
         cache: true
+    
+    - name: 安装 gomobile
+      run: |
+        go install golang.org/x/mobile/cmd/gomobile@latest
+        gomobile init
+        echo "$HOME/go/bin" >> $GITHUB_PATH
 
     - name: 执行 one.sh（先 2，10 秒后 0）
       run: |
@@ -52,29 +58,26 @@ jobs:
         printf "0\n" >> input.txt
         ./one.sh < input.txt
 
-    - name: 安装 gomobile 并构建 Go 引擎
+
+    - name: 准备 proxyclient.aar
       run: |
-          # 安装 gomobile
-          go install golang.org/x/mobile/cmd/gomobile@latest
-          gomobile init
-
-          # 确保 engine 目录有 go.mod
-          cd tun2socks/engine
-          go mod tidy
-
-          # 构建 AAR
-          cd ..
-          chmod +x build.sh
-          ./build.sh
-
+        mkdir -p android/app/libs
+        if [ -f "./proxyclient.aar" ]; then
+          echo "? 使用仓库已有 proxyclient.aar"
+          cp ./proxyclient.aar android/app/libs/
+        else
+          echo "? proxyclient.aar 不存在，开始构建 Go 引擎"
+          chmod +x tun2socks/build.sh
+          ./tun2socks/build.sh
+        fi
     
-    - name: 验证 AAR 文件
+    - name: 验证 AAR 文件是否生成
       run: |
         if [ ! -f "android/app/libs/proxyclient.aar" ]; then
-          echo "AAR 文件未生成"
+          echo "? AAR 文件未生成"
           exit 1
         fi
-        echo "AAR 文件已生成"
+        echo "? AAR 文件已生成"
         ls -lh android/app/libs/proxyclient.aar
     
     - name: 获取 Flutter 依赖
@@ -144,10 +147,10 @@ jobs:
           ## AppProxy ECH 客户端 ${{ github.ref_name }}
           
           ### 新功能
-          - ✔ ECH (Encrypted Client Hello) 支持
-          - ✔ WebSocket 持久连接
-          - ✔ SOCKS5 / HTTP 代理
-          - ✔ DNS over HTTPS
+          - ? ECH (Encrypted Client Hello) 支持
+          - ? WebSocket 持久连接
+          - ? SOCKS5 / HTTP 代理
+          - ? DNS over HTTPS
           
           ### 下载
           `appproxy-ech-release.apk` - 通用版本
