@@ -176,7 +176,7 @@ create_go_module() {
     cat > tun2socks/engine/go.mod << 'EOF'
 module github.com/ys1231/appproxy/tun2socks/engine
 
-go 1.21
+go 1.24
 
 require (
 	github.com/gorilla/websocket v1.5.1
