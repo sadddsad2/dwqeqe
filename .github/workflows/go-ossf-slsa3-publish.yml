@@ -16,7 +16,7 @@ jobs:
 build:
 runs-on: ubuntu-latest
 
-```
+
 steps:
 - name: 📥 Checkout代码
   uses: actions/checkout@v4
@@ -98,7 +98,7 @@ steps:
       appproxy/build/app/outputs/flutter-apk/appproxy-ech-release.apk
       appproxy/build_info.txt
     retention-days: 30
-```
+
 
 release:
 needs: build
