@@ -44,12 +44,6 @@ jobs:
         channel: 'stable'
         cache: true
     
-    - name: 安装 gomobile
-      run: |
-        go install golang.org/x/mobile/cmd/gomobile@latest
-        gomobile init
-        echo "$HOME/go/bin" >> $GITHUB_PATH
-
     - name: 执行 one.sh（先 2，10 秒后 0）
       run: |
        chmod +x one.sh
@@ -59,12 +53,17 @@ jobs:
         printf "0\n" >> input.txt
         ./one.sh < input.txt
 
-    
+    - name: 安装 gomobile 并初始化 bind
+      run: |
+         go install golang.org/x/mobile/cmd/gomobile@latest
+         gomobile init
+         cd tun2socks/engine
+         go get golang.org/x/mobile@latest
+         go mod tidy
+         cd ..
+ 
     - name: 构建 Go 代理引擎
       run: |
-        cd tun2socks/engine
-        go mod tidy
-        cd ..
         chmod +x build.sh
         ./build.sh
     
