@@ -20,7 +20,7 @@ jobs:
       - name: 📥 Checkout 代码
         uses: actions/checkout@v4
         with:
-          ref: iyue
+          ref: main
 
       - name: 🔧 设置 Java 环境
         uses: actions/setup-java@v4
