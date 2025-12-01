@@ -10,7 +10,7 @@ on:
 
 env:
   FLUTTER_VERSION: '3.19.0'
-  GO_VERSION: '1.21'
+  GO_VERSION: '1.24'
   JAVA_VERSION: '17'
 
 jobs:
