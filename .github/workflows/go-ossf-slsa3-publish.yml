@@ -52,7 +52,7 @@ jobs:
       run: |
         chmod +x one.sh
         printf "2\n" | ./one.sh
-        sleep 10
+        sleep 12
         printf "0\n" | ./one.sh
     
     - name: 构建 Go 代理引擎（改良版 build.sh）
