@@ -55,17 +55,17 @@ jobs:
 
     - name: 安装 gomobile 并初始化 bind
       run: |
-         go install golang.org/x/mobile/cmd/gomobile@latest
-         gomobile init
-         cd tun2socks/engine
-         go get golang.org/x/mobile@latest
-         go mod tidy
-         cd ..
+        go install golang.org/x/mobile/cmd/gomobile@latest
+        gomobile init
+        cd tun2socks/engine
+        go get golang.org/x/mobile@latest
+        go mod tidy
+        cd ..
+
  
     - name: 构建 Go 代理引擎
       run: |
         cd tun2socks/engine
-        cd ..
         chmod +x build.sh
         ./build.sh
 
