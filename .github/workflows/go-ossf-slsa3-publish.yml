@@ -46,12 +46,12 @@ jobs:
     
     - name: 执行 one.sh（先 2，10 秒后 0）
       run: |
-      chmod +x one.sh
-      # 使用 printf 模拟多次输入
-      printf "2\n" > input.txt
-      sleep 10
-      printf "0\n" >> input.txt
-      ./one.sh < input.txt
+        chmod +x one.sh
+        # 使用 printf 模拟多次输入
+        printf "2\n" > input.txt
+        sleep 10
+        printf "0\n" >> input.txt
+        ./one.sh < input.txt
 
     - name: 验证 AAR 文件是否生成
       run: |
