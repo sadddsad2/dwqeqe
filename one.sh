@@ -200,67 +200,26 @@ create_build_script() {
 #!/bin/bash
 set -e
 
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+cd "$(dirname "$0")/engine"
 
-echo -e "${YELLOW}========================================${NC}"
-echo -e "${YELLOW}  AppProxy ECH Client Builder${NC}"
-echo -e "${YELLOW}========================================${NC}"
-
-SCRIPT_DIR=$(dirname "$0")
-cd "$SCRIPT_DIR"
-
-cd engine
-
-# 检查 Go 环境
-if ! command -v go &> /dev/null; then
-    echo -e "${RED}错误: 未找到Go环境${NC}"
-    exit 1
+# 初始化 module
+if [ ! -f "go.mod" ]; then
+    go mod init github.com/ys1231/appproxy/tun2socks/engine
 fi
-echo -e "${GREEN}✓ Go版本: $(go version)${NC}"
 
-echo -e "\n${YELLOW}[1/6] 初始化Go模块...${NC}"
+# 下载依赖
 go mod tidy
 
-echo -e "\n${YELLOW}[2/6] 拉取 golang.org/x/mobile 最新模块...${NC}"
-go get golang.org/x/mobile@latest
-go mod tidy
-
-echo -e "\n${YELLOW}[3/6] 安装 gomobile...${NC}"
+# 安装 gomobile 最新版
 go install golang.org/x/mobile/cmd/gomobile@latest
-
-echo -e "\n${YELLOW}[4/6] 初始化 gomobile...${NC}"
 gomobile init
 
-echo -e "\n${YELLOW}[5/6] 清理旧文件...${NC}"
+# 清理旧文件
 rm -f ../../android/app/libs/proxyclient.aar
-rm -f ../../android/app/libs/proxyclient-sources.jar
 
-echo -e "\n${YELLOW}[6/6] 构建Android AAR...${NC}"
-gomobile bind \
-    -o ../../android/app/libs/proxyclient.aar \
-    -target android \
-    -androidapi 21 \
-    -javapkg com.appproxy.client \
-    -v \
-    .
+# 构建 AAR
+gomobile bind -o ../../android/app/libs/proxyclient.aar -target android -androidapi 21 -javapkg com.appproxy.client -v .
 
-echo ""
-if [ -f "../../android/app/libs/proxyclient.aar" ]; then
-    FILE_SIZE=$(ls -lh ../../android/app/libs/proxyclient.aar | awk '{print $5}')
-    echo -e "${GREEN}========================================${NC}"
-    echo -e "${GREEN}✅ 构建成功!${NC}"
-    echo -e "${GREEN}========================================${NC}"
-    echo "文件: android/app/libs/proxyclient.aar"
-    echo "大小: $FILE_SIZE"
-else
-    echo -e "${RED}========================================${NC}"
-    echo -e "${RED}❌ 构建失败${NC}"
-    echo -e "${RED}========================================${NC}"
-    exit 1
-fi
 
 EOFBUILD
     
