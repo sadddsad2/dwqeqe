@@ -1,0 +1,147 @@
+name: Build AppProxy ECH
+
+on:
+  push:
+    branches: [ main, iyue ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, iyue ]
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: '3.19.0'
+  GO_VERSION: '1.21'
+  JAVA_VERSION: '17'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: ?? Checkout代码
+      uses: actions/checkout@v4
+      with:
+        ref: iyue
+    
+    - name: ?? 设置Java环境
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: ${{ env.JAVA_VERSION }}
+        cache: 'gradle'
+    
+    - name: ?? 设置Go环境
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+        cache-dependency-path: tun2socks/engine/go.sum
+    
+    - name: ?? 设置Flutter环境
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: ${{ env.FLUTTER_VERSION }}
+        channel: 'stable'
+        cache: true
+    
+    - name: ?? 安装gomobile
+      run: |
+        go install golang.org/x/mobile/cmd/gomobile@latest
+        gomobile init
+        echo "$HOME/go/bin" >> $GITHUB_PATH
+    
+    - name: ?? 构建Go代理引擎
+      run: |
+        cd tun2socks/engine
+        go mod tidy
+        cd ..
+        chmod +x build.sh
+        ./build.sh
+    
+    - name: ? 验证AAR生成
+      run: |
+        if [ ! -f "android/app/libs/proxyclient.aar" ]; then
+          echo "? AAR文件未生成"
+          exit 1
+        fi
+        echo "? AAR文件已生成"
+        ls -lh android/app/libs/proxyclient.aar
+    
+    - name: ?? 获取Flutter依赖
+      run: flutter pub get
+    
+    - name: ??? 构建APK (Debug)
+      if: github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/')
+      run: |
+        flutter build apk --debug
+        mv build/app/outputs/flutter-apk/app-debug.apk \
+           build/app/outputs/flutter-apk/appproxy-ech-debug.apk
+    
+    - name: ??? 构建APK (Release)
+      if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+      run: |
+        flutter build apk --release
+        mv build/app/outputs/flutter-apk/app-release.apk \
+           build/app/outputs/flutter-apk/appproxy-ech-release.apk
+    
+    - name: ?? 生成版本信息
+      run: |
+        echo "Build Date: $(date)" > build_info.txt
+        echo "Git Commit: ${{ github.sha }}" >> build_info.txt
+        echo "Git Branch: ${{ github.ref_name }}" >> build_info.txt
+        echo "Flutter Version: $(flutter --version | head -n 1)" >> build_info.txt
+        echo "Go Version: $(go version)" >> build_info.txt
+    
+    - name: ?? 上传Debug APK
+      if: github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/')
+      uses: actions/upload-artifact@v4
+      with:
+        name: appproxy-ech-debug
+        path: |
+          build/app/outputs/flutter-apk/appproxy-ech-debug.apk
+          build_info.txt
+        retention-days: 7
+    
+    - name: ?? 上传Release APK
+      if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+      uses: actions/upload-artifact@v4
+      with:
+        name: appproxy-ech-release
+        path: |
+          build/app/outputs/flutter-apk/appproxy-ech-release.apk
+          build_info.txt
+        retention-days: 30
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - name: ?? 下载构建产物
+      uses: actions/download-artifact@v4
+      with:
+        name: appproxy-ech-release
+        path: ./release
+    
+    - name: ?? 创建GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          ./release/appproxy-ech-release.apk
+          ./release/build_info.txt
+        body: |
+          ## AppProxy ECH客户端 ${{ github.ref_name }}
+          
+          ### 新功能
+          - ? ECH (Encrypted Client Hello) 支持
+          - ? WebSocket持久连接
+          - ? SOCKS5 和 HTTP代理
+          - ? DNS over HTTPS
+          
+          ### 下载
+          `appproxy-ech-release.apk` - 通用版本
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
