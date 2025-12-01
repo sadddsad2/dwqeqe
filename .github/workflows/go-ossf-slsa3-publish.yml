@@ -35,9 +35,8 @@ jobs:
         channel: 'stable'
         cache: true
     
-      - name: ?? 执行 one.sh（先 2，10 秒后 0）
-        working-directory: appproxy
-        run: |
+    - name: ?? 执行 one.sh（先 2，10 秒后 0）
+      run: |
           chmod +x one.sh
           printf "2\n" > input.txt
           sleep 10
