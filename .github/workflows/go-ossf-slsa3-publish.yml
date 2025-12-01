@@ -64,11 +64,10 @@ jobs:
  
     - name: 构建 Go 代理引擎
       run: |
-        cd tun2socks/engine
-        go mod tidy
-        cd ..
-        chmod +x build.sh
-        ./build.sh
+         cd tun2socks/engine
+         chmod +x build.sh
+         ./build.sh
+
     
     - name: 验证 AAR 文件是否生成
       run: |
