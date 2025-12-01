@@ -65,7 +65,7 @@ jobs:
  
     - name: 构建 Go 代理引擎
       run: |
-        cd tun2socks/engine
+        cd tun2socks
         chmod +x build.sh
         ./build.sh
 
