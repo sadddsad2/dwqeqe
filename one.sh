@@ -214,27 +214,31 @@ cd "$SCRIPT_DIR"
 
 cd engine
 
+# 检查 Go 环境
 if ! command -v go &> /dev/null; then
     echo -e "${RED}错误: 未找到Go环境${NC}"
     exit 1
 fi
-
 echo -e "${GREEN}✓ Go版本: $(go version)${NC}"
 
-echo -e "\n${YELLOW}[1/5] 初始化Go模块...${NC}"
+echo -e "\n${YELLOW}[1/6] 初始化Go模块...${NC}"
 go mod tidy
 
-echo -e "\n${YELLOW}[2/5] 安装gomobile...${NC}"
+echo -e "\n${YELLOW}[2/6] 拉取 golang.org/x/mobile 最新模块...${NC}"
+go get golang.org/x/mobile@latest
+go mod tidy
+
+echo -e "\n${YELLOW}[3/6] 安装 gomobile...${NC}"
 go install golang.org/x/mobile/cmd/gomobile@latest
 
-echo -e "\n${YELLOW}[3/5] 初始化gomobile...${NC}"
+echo -e "\n${YELLOW}[4/6] 初始化 gomobile...${NC}"
 gomobile init
 
-echo -e "\n${YELLOW}[4/5] 清理旧文件...${NC}"
+echo -e "\n${YELLOW}[5/6] 清理旧文件...${NC}"
 rm -f ../../android/app/libs/proxyclient.aar
 rm -f ../../android/app/libs/proxyclient-sources.jar
 
-echo -e "\n${YELLOW}[5/5] 构建Android AAR...${NC}"
+echo -e "\n${YELLOW}[6/6] 构建Android AAR...${NC}"
 gomobile bind \
     -o ../../android/app/libs/proxyclient.aar \
     -target android \
@@ -257,6 +261,7 @@ else
     echo -e "${RED}========================================${NC}"
     exit 1
 fi
+
 EOFBUILD
     
     chmod +x tun2socks/build.sh
