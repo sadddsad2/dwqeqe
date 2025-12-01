@@ -57,16 +57,17 @@ jobs:
         printf "0\n" >> input.txt
         ./one.sh < input.txt
 
-    
     - name: 构建 Go 代理引擎
       run: |
         chmod +x tun2socks/build.sh
         cd tun2socks
-        go get golang.org/x/mobile@latest
+        cd engine
         go mod tidy
+        cd ..
         gomobile init
         ./build.sh
         cd ..
+
     
     - name: 验证 AAR 文件
       run: |
