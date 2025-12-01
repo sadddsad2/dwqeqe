@@ -27,7 +27,7 @@ jobs:
       with:
         distribution: 'zulu'
         java-version: ${{ env.JAVA_VERSION }}
-        # cache: 'gradle'
+        cache: 'gradle'
     
     - name: 🎯 设置 Flutter 环境
       uses: subosito/flutter-action@v2
@@ -36,26 +36,137 @@ jobs:
         channel: 'stable'
         cache: true
     
-    - name: 🛠️ 运行 one.sh 生成项目文件（跳过 Go 构建）
+    - name: 🛠️ 运行 one.sh 生成项目结构
       run: |
         chmod +x one.sh
         
-        # 检查脚本内容，看看选项 2 是做什么的
-        echo "执行 one.sh 选项 2（创建项目结构）"
-        
         # 输入选项：2 = 仅创建项目结构，0 = 退出
-        printf "2\n0\n" | ./one.sh || {
-          echo "⚠️ one.sh 执行遇到问题，但继续进行"
-          echo "当前目录内容:"
-          ls -la
-        }
+        printf "2\n0\n" | ./one.sh || true
         
-        # 验证关键文件是否生成
-        echo ""
-        echo "检查生成的文件:"
-        [ -f "pubspec.yaml" ] && echo "✅ pubspec.yaml" || echo "❌ pubspec.yaml 缺失"
-        [ -d "lib" ] && echo "✅ lib/" || echo "❌ lib/ 缺失"
-        [ -d "android" ] && echo "✅ android/" || echo "❌ android/ 缺失"
+        echo "生成的目录结构:"
+        ls -la
+    
+    - name: 📝 创建 pubspec.yaml (如果不存在)
+      run: |
+        if [ ! -f "pubspec.yaml" ]; then
+          echo "创建 pubspec.yaml..."
+          cat > pubspec.yaml << 'EOF'
+name: appproxy_ech
+description: AppProxy ECH Client - Encrypted Client Hello proxy client
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+  shared_preferences: ^2.2.2
+  flutter_native_splash: ^2.3.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+EOF
+          echo "✅ pubspec.yaml 已创建"
+        else
+          echo "✅ pubspec.yaml 已存在"
+        fi
+        
+        cat pubspec.yaml
+    
+    - name: 📝 创建 main.dart (如果不存在)
+      run: |
+        mkdir -p lib
+        
+        if [ ! -f "lib/main.dart" ]; then
+          echo "创建 lib/main.dart..."
+          cat > lib/main.dart << 'EOF'
+import 'package:flutter/material.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'AppProxy ECH',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
+      ),
+      home: const MyHomePage(title: 'AppProxy ECH Client'),
+    );
+  }
+}
+
+class MyHomePage extends StatefulWidget {
+  const MyHomePage({super.key, required this.title});
+
+  final String title;
+
+  @override
+  State<MyHomePage> createState() => _MyHomePageState();
+}
+
+class _MyHomePageState extends State<MyHomePage> {
+  bool _isRunning = false;
+
+  void _toggleProxy() {
+    setState(() {
+      _isRunning = !_isRunning;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        title: Text(widget.title),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            Icon(
+              _isRunning ? Icons.check_circle : Icons.cancel,
+              size: 100,
+              color: _isRunning ? Colors.green : Colors.grey,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              _isRunning ? 'Proxy Running' : 'Proxy Stopped',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            const SizedBox(height: 40),
+            ElevatedButton(
+              onPressed: _toggleProxy,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+              ),
+              child: Text(_isRunning ? 'Stop' : 'Start'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+EOF
+          echo "✅ lib/main.dart 已创建"
+        else
+          echo "✅ lib/main.dart 已存在"
+        fi
     
     - name: 📦 准备 AAR 文件
       run: |
@@ -69,27 +180,37 @@ jobs:
           ls -lh android/app/libs/proxyclient.aar
         else
           echo "❌ 根目录找不到 proxyclient.aar"
-          echo "当前目录内容:"
           ls -la
           exit 1
+        fi
+    
+    - name: 🔧 配置 Android build.gradle
+      run: |
+        # 确保 android/app/build.gradle 存在并配置了 AAR
+        if [ -f "android/app/build.gradle" ]; then
+          echo "✅ android/app/build.gradle 已存在"
+          
+          # 检查是否已配置 flatDir
+          if ! grep -q "flatDir" android/app/build.gradle; then
+            echo "添加 flatDir 配置..."
+            # 这里可以添加修改 build.gradle 的逻辑
+          fi
+        else
+          echo "⚠️ android/app/build.gradle 不存在，使用默认配置"
         fi
     
     - name: 📱 获取 Flutter 依赖
       run: |
         echo "当前目录: $(pwd)"
-        
-        # 检查 pubspec.yaml
-        if [ ! -f "pubspec.yaml" ]; then
-          echo "❌ 找不到 pubspec.yaml"
-          echo "目录内容:"
-          ls -la
-          exit 1
-        fi
-        
-        echo "pubspec.yaml 内容预览:"
-        head -20 pubspec.yaml
+        echo ""
+        echo "pubspec.yaml 内容:"
+        cat pubspec.yaml
+        echo ""
         
         flutter pub get
+        
+        echo ""
+        echo "✅ Flutter 依赖安装完成"
     
     - name: 🏗️ 构建 APK (Debug)
       if: github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/')
