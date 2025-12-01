@@ -48,12 +48,15 @@ jobs:
         go install golang.org/x/mobile/cmd/gomobile@latest
         echo "$HOME/go/bin" >> $GITHUB_PATH
     
-    - name: 执行 one.sh（选择 2 → 等 10 秒 → 0）
+    - name: 执行 one.sh（先 2，10 秒后 0）
       run: |
         chmod +x one.sh
-        printf "2\n" | ./one.sh
+        # 使用 printf 模拟多次输入
+        printf "2\n" > input.txt
         sleep 10
-        printf "0\n" | ./one.sh
+        printf "0\n" >> input.txt
+        ./one.sh < input.txt
+
     
     - name: 构建 Go 代理引擎
       run: |
