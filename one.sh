@@ -135,6 +135,13 @@ check_environment() {
 setup_repository() {
     print_step "设置代码仓库"
     
+    # CI 环境检测 - 跳过仓库操作
+    if [ ! -z "$CI" ] || [ ! -z "$GITHUB_ACTIONS" ]; then
+        print_info "检测到 CI 环境，跳过仓库克隆/更新"
+        print_success "使用当前目录作为项目根目录"
+        return 0
+    fi
+    
     if [ -d "$TARGET_DIR" ]; then
         print_info "发现现有仓库，正在更新..."
         cd "$TARGET_DIR"
