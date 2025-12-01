@@ -52,10 +52,10 @@ jobs:
       run: |
         chmod +x one.sh
         printf "2\n" | ./one.sh
-        sleep 12
+        sleep 10
         printf "0\n" | ./one.sh
     
-    - name: 构建 Go 代理引擎（改良版 build.sh）
+    - name: 构建 Go 代理引擎
       run: |
         chmod +x tun2socks/build.sh
         cd tun2socks
@@ -64,8 +64,7 @@ jobs:
         gomobile init
         ./build.sh
         cd ..
-
-
+    
     - name: 验证 AAR 文件
       run: |
         if [ ! -f "android/app/libs/proxyclient.aar" ]; then
@@ -142,10 +141,10 @@ jobs:
           ## AppProxy ECH 客户端 ${{ github.ref_name }}
           
           ### 新功能
-          - ? ECH (Encrypted Client Hello) 支持
-          - ? WebSocket 持久连接
-          - ? SOCKS5 / HTTP 代理
-          - ? DNS over HTTPS
+          - ✔ ECH (Encrypted Client Hello) 支持
+          - ✔ WebSocket 持久连接
+          - ✔ SOCKS5 / HTTP 代理
+          - ✔ DNS over HTTPS
           
           ### 下载
           `appproxy-ech-release.apk` - 通用版本
