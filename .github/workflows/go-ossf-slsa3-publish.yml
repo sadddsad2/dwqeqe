@@ -28,7 +28,6 @@ jobs:
       with:
         distribution: 'zulu'
         java-version: ${{ env.JAVA_VERSION }}
-        #cache: 'gradle'
     
     - name: 设置 Go 环境
       uses: actions/setup-go@v5
@@ -44,33 +43,30 @@ jobs:
         channel: 'stable'
         cache: true
     
-    - name: 执行 one.sh（先 2，10 秒后 0）
-      run: |
-       chmod +x one.sh
-        # 使用 printf 模拟多次输入
-        printf "2\n" > input.txt
-        sleep 10
-        printf "0\n" >> input.txt
-        ./one.sh < input.txt
-
-    - name: 安装 gomobile 并初始化 bind
+    - name: 安装 gomobile
       run: |
         go install golang.org/x/mobile/cmd/gomobile@latest
-        gomobile init
-        cd tun2socks/engine
+        echo "$HOME/go/bin" >> $GITHUB_PATH
+    
+    - name: 执行 one.sh（选择 2 → 等 10 秒 → 0）
+      run: |
+        chmod +x one.sh
+        printf "2\n" | ./one.sh
+        sleep 10
+        printf "0\n" | ./one.sh
+    
+    - name: 构建 Go 代理引擎（改良版 build.sh）
+      run: |
+        chmod +x tun2socks/build.sh
+        cd tun2socks
         go get golang.org/x/mobile@latest
         go mod tidy
+        gomobile init
+        ./build.sh
         cd ..
 
- 
-    - name: 构建 Go 代理引擎
-      run: |
-        cd tun2socks
-        chmod +x build.sh
-        ./build.sh
 
-    
-    - name: 验证 AAR 文件是否生成
+    - name: 验证 AAR 文件
       run: |
         if [ ! -f "android/app/libs/proxyclient.aar" ]; then
           echo "AAR 文件未生成"
@@ -146,10 +142,10 @@ jobs:
           ## AppProxy ECH 客户端 ${{ github.ref_name }}
           
           ### 新功能
-          - ✔ ECH (Encrypted Client Hello) 支持
-          - ✔ WebSocket 持久连接
-          - ✔ SOCKS5 / HTTP 代理
-          - ✔ DNS over HTTPS
+          - ? ECH (Encrypted Client Hello) 支持
+          - ? WebSocket 持久连接
+          - ? SOCKS5 / HTTP 代理
+          - ? DNS over HTTPS
           
           ### 下载
           `appproxy-ech-release.apk` - 通用版本
