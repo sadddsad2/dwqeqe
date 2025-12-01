@@ -49,7 +49,13 @@ jobs:
         go install golang.org/x/mobile/cmd/gomobile@latest
         gomobile init
         echo "$HOME/go/bin" >> $GITHUB_PATH
-    
+        
+    - name: ⚙️ 初始化构建环境（执行 one.sh 选择 2）
+      run: |
+        chmod +x one.sh
+        # 自动选择 2 的方式：
+        printf "2\n" | ./one.sh
+
     - name: ?? 构建Go代理引擎
       run: |
         cd tun2socks/engine
