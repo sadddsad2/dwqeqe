@@ -1,137 +1,134 @@
 name: Build AppProxy ECH
 
 on:
-push:
-branches: [ main, iyue ]
-tags: [ 'v*' ]
-pull_request:
-branches: [ main, iyue ]
-workflow_dispatch:
+  push:
+    branches: [ main, iyue ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, iyue ]
+  workflow_dispatch:
 
 env:
-FLUTTER_VERSION: '3.19.0'
-JAVA_VERSION: '17'
+  FLUTTER_VERSION: '3.19.0'
+  JAVA_VERSION: '17'
 
 jobs:
-build:
-runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-latest
 
+    steps:
+      - name: 📥 Checkout 代码
+        uses: actions/checkout@v4
+        with:
+          ref: iyue
 
-steps:
-- name: 📥 Checkout代码
-  uses: actions/checkout@v4
-  with:
-    ref: iyue
+      - name: 🔧 设置 Java 环境
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: 'gradle'
 
-- name: 🔧 设置Java环境
-  uses: actions/setup-java@v4
-  with:
-    distribution: 'zulu'
-    java-version: ${{ env.JAVA_VERSION }}
-    cache: 'gradle'
+      - name: 🎯 设置 Flutter 环境
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
 
-- name: 🎯 设置Flutter环境
-  uses: subosito/flutter-action@v2
-  with:
-    flutter-version: ${{ env.FLUTTER_VERSION }}
-    channel: 'stable'
-    cache: true
+      - name: 🔗 使用已有 proxyclient.aar
+        run: |
+          mkdir -p appproxy/android/app/libs
+          cp proxyclient.aar appproxy/android/app/libs/
 
-- name: 🔗 使用已有proxyclient.aar
-  run: |
-    mkdir -p appproxy/android/app/libs
-    cp proxyclient.aar appproxy/android/app/libs/
+      - name: 🚀 执行 one.sh（先 2，10 秒后 0）
+        working-directory: appproxy
+        run: |
+          chmod +x one.sh
+          printf "2\n" > input.txt
+          sleep 10
+          printf "0\n" >> input.txt
+          ./one.sh < input.txt
+          rm -f input.txt
 
-- name: 🚀 执行 one.sh（先 2，10 秒后 0）
-  run: |
-    chmod +x one.sh
-    printf "2\n" > input.txt
-    sleep 10
-    printf "0\n" >> input.txt
-    ./one.sh < input.txt
-  working-directory: appproxy
+      - name: 📱 获取 Flutter 依赖
+        working-directory: appproxy
+        run: flutter pub get
 
-- name: 📱 获取Flutter依赖
-  run: flutter pub get
-  working-directory: appproxy
+      - name: 🏗️ 构建 APK (Debug)
+        if: github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/')
+        working-directory: appproxy
+        run: |
+          flutter build apk --debug
+          mv build/app/outputs/flutter-apk/app-debug.apk \
+             build/app/outputs/flutter-apk/appproxy-ech-debug.apk
 
-- name: 🏗️ 构建APK (Debug)
-  if: github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/')
-  run: |
-    flutter build apk --debug
-    mv build/app/outputs/flutter-apk/app-debug.apk \
-       build/app/outputs/flutter-apk/appproxy-ech-debug.apk
-  working-directory: appproxy
+      - name: 🏗️ 构建 APK (Release)
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+        working-directory: appproxy
+        run: |
+          flutter build apk --release
+          mv build/app/outputs/flutter-apk/app-release.apk \
+             build/app/outputs/flutter-apk/appproxy-ech-release.apk
 
-- name: 🏗️ 构建APK (Release)
-  if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
-  run: |
-    flutter build apk --release
-    mv build/app/outputs/flutter-apk/app-release.apk \
-       build/app/outputs/flutter-apk/appproxy-ech-release.apk
-  working-directory: appproxy
+      - name: 📊 生成版本信息
+        working-directory: appproxy
+        run: |
+          echo "Build Date: $(date)" > build_info.txt
+          echo "Git Commit: ${{ github.sha }}" >> build_info.txt
+          echo "Git Branch: ${{ github.ref_name }}" >> build_info.txt
+          echo "Flutter Version: $(flutter --version | head -n 1)" >> build_info.txt
 
-- name: 📊 生成版本信息
-  run: |
-    echo "Build Date: $(date)" > build_info.txt
-    echo "Git Commit: ${{ github.sha }}" >> build_info.txt
-    echo "Git Branch: ${{ github.ref_name }}" >> build_info.txt
-    echo "Flutter Version: $(flutter --version | head -n 1)" >> build_info.txt
-  working-directory: appproxy
+      - name: 📤 上传 Debug APK
+        if: github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v4
+        with:
+          name: appproxy-ech-debug
+          path: |
+            appproxy/build/app/outputs/flutter-apk/appproxy-ech-debug.apk
+            appproxy/build_info.txt
+          retention-days: 7
 
-- name: 📤 上传Debug APK
-  if: github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/')
-  uses: actions/upload-artifact@v4
-  with:
-    name: appproxy-ech-debug
-    path: |
-      appproxy/build/app/outputs/flutter-apk/appproxy-ech-debug.apk
-      appproxy/build_info.txt
-    retention-days: 7
+      - name: 📤 上传 Release APK
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v4
+        with:
+          name: appproxy-ech-release
+          path: |
+            appproxy/build/app/outputs/flutter-apk/appproxy-ech-release.apk
+            appproxy/build_info.txt
+          retention-days: 30
 
-- name: 📤 上传Release APK
-  if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
-  uses: actions/upload-artifact@v4
-  with:
-    name: appproxy-ech-release
-    path: |
-      appproxy/build/app/outputs/flutter-apk/appproxy-ech-release.apk
-      appproxy/build_info.txt
-    retention-days: 30
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
 
+    steps:
+      - name: 📥 下载构建产物
+        uses: actions/download-artifact@v4
+        with:
+          name: appproxy-ech-release
+          path: ./release
 
-release:
-needs: build
-runs-on: ubuntu-latest
-if: startsWith(github.ref, 'refs/tags/')
-
-```
-steps:
-- name: 📥 下载构建产物
-  uses: actions/download-artifact@v4
-  with:
-    name: appproxy-ech-release
-    path: ./release
-
-- name: 🎉 创建GitHub Release
-  uses: softprops/action-gh-release@v1
-  with:
-    files: |
-      ./release/appproxy-ech-release.apk
-      ./release/build_info.txt
-    body: |
-      ## AppProxy ECH客户端 ${{ github.ref_name }}
-      
-      ### 新功能
-      - ✅ ECH (Encrypted Client Hello) 支持
-      - ✅ WebSocket持久连接
-      - ✅ SOCKS5 和 HTTP代理
-      - ✅ DNS over HTTPS
-      
-      ### 下载
-      `appproxy-ech-release.apk` - 通用版本
-    draft: false
-    prerelease: false
-  env:
-    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-```
+      - name: 🎉 创建 GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ./release/appproxy-ech-release.apk
+            ./release/build_info.txt
+          body: |
+            ## AppProxy ECH客户端 ${{ github.ref_name }}
+            
+            ### 新功能
+            - ✅ ECH (Encrypted Client Hello) 支持
+            - ✅ WebSocket持久连接
+            - ✅ SOCKS5 和 HTTP代理
+            - ✅ DNS over HTTPS
+            
+            ### 下载
+            `appproxy-ech-release.apk` - 通用版本
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
