@@ -42,12 +42,7 @@ jobs:
         flutter-version: ${{ env.FLUTTER_VERSION }}
         channel: 'stable'
         cache: true
-    
-    - name: 安装 gomobile
-      run: |
-        go install golang.org/x/mobile/cmd/gomobile@latest
-        echo "$HOME/go/bin" >> $GITHUB_PATH
-    
+
     - name: 执行 one.sh（先 2，10 秒后 0）
       run: |
         chmod +x one.sh
@@ -57,16 +52,20 @@ jobs:
         printf "0\n" >> input.txt
         ./one.sh < input.txt
 
-    - name: 构建 Go 代理引擎
+    - name: 安装 gomobile 并构建 Go 引擎
       run: |
-        chmod +x tun2socks/build.sh
-        cd tun2socks
-        cd engine
-        go mod tidy
-        cd ..
-        gomobile init
-        ./build.sh
-        cd ..
+          # 安装 gomobile
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          gomobile init
+
+          # 确保 engine 目录有 go.mod
+          cd tun2socks/engine
+          go mod tidy
+
+          # 构建 AAR
+          cd ..
+          chmod +x build.sh
+          ./build.sh
 
     
     - name: 验证 AAR 文件
